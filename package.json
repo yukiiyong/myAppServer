@@ -1,0 +1,31 @@
+{
+  "name": "appserver",
+  "version": "1.0.0",
+  "description": "server for react native app",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "bluebird": "^3.5.1",
+    "cloudinary": "^1.11.0",
+    "grunt": "^1.0.3",
+    "grunt-concurrent": "^2.3.1",
+    "grunt-contrib-watch": "^1.1.0",
+    "grunt-nodemon": "^0.4.2",
+    "koa": "^2.5.2",
+    "koa-bodyparser": "^4.2.1",
+    "koa-logger": "^3.2.0",
+    "koa-router": "^7.4.0",
+    "koa-session": "^5.8.2",
+    "lodash": "^4.17.10",
+    "mongoose": "^5.2.4",
+    "qiniu": "^7.2.1",
+    "sha1": "^1.1.1",
+    "speakeasy": "^2.0.0",
+    "uuid": "^3.3.2",
+    "xss": "^1.0.3"
+  }
+}
