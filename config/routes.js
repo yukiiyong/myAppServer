@@ -24,7 +24,8 @@ module.exports = function() {
   router.post('/creations', App.hasBody, App.hasToken, Creation.save)
   router.post('/creations/video', App.hasBody, App.hasToken, Creation.video)
   router.post('/creations/audio', App.hasBody, App.hasToken, Creation.audio)
-
+  router.get('/creationsByName', App.hasToken, Creation.findByName)
+  
   //votes
   router.post('/up', App.hasBody, App.hasToken, Creation.votes)
   

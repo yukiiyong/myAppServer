@@ -108,8 +108,8 @@ exports.video = async (ctx, next) => {
   //cloudinary返回到public_id 和 detail 保存到video数据库中 
   var user = ctx.session.user
   var videoData = ctx.request.body.video
-
-  if(!videoData || !videoData.key) {
+  console.log(videoData)
+  if(!videoData || !videoData.public_id) { //七牛检查key，cloudinary检查public_id
     ctx.body = {
       success: false,
       err: '视频上传失败'
@@ -117,34 +117,17 @@ exports.video = async (ctx, next) => {
     return
   }
   var video = await Video.findOne({
-    qiniu_key: videoData.key
+    public_id: videoData.public_id
   })
 
   if(!video) {
     video = new Video({
       author: user._id,
-      qiniu_key: videoData.key,
-      persistentId: videoData.persistentId
+      public_id: videoData.public_id,
+      detail: videoData
     })
 
     video = await video.save()
-
-    const videoUrl = config.qiniu.video + video.qiniu_key
-
-    robot.uploadToCloudinary(videoUrl)
-      .then(data => {
-        if(data && data.public_id) {
-
-          video.detail = data
-          video.public_id = data.public_id
-
-          video.save().then((_video) => {
-            asyncMedia(_video._id)
-          })
-        }
-      }).catch(err => {
-        console.log(err)
-      })
 
     ctx.body = {
       success: true,
@@ -216,55 +199,37 @@ exports.save = async (ctx, next) => {
   //返回body(_id,finish,title,qiniu_thumb,qiniu_video,author: {avatar,nickname,gender,_id})
   const body = ctx.request.body
   const videoId = body.videoId
-  const audioId = body.audioId
   const title = body.title
   const user = ctx.session.user
-
+  console.log(title)
   var video = await Video.findOne({
     _id: videoId
   }).exec()
+  //生成缩略图地址和视频地址
+  var thumbUrl = config.cloudinary.base + '/video/upload/' + video.public_id + '.jpg'
+  let thumbName = video.public_id.replace(/\//g, '_') + '.jpg'
+  let videoUrl = '/video/upload/' + video.public_id + '.mp4'
 
-  var audio = await Audio.findOne({_id: audioId}).exec()
-
-  if(!video || !audio) {
+  if(!video) {
     ctx.body = {
       success: false,
-      err: '音频或视频不能为空'
+      err: '视频不能为空'
     }
     return 
   }
 
   var creation = await Creation.findOne({
-    video: videoId,
-    audio: audioId
+    video: videoId
   }).exec()
 
   if(!creation) {
     var creationData = {
       author: user._id,
       video: video._id,
-      audio: audio._id,
+      cloudinary_thumb: thumbUrl,
+      cloudinary_video: videoUrl,
       title: title,
-      finish: 20
-    }
-
-    var video_public_id = video.public_id
-    var audio_public_id = audio.public_id
-
-    if(video_public_id && audio_public_id) {
-      creationData.cloudinary_video = config.cloudinary.base + '/video/upload/e_volume:-100/e_volume:400,l_video:' + audio_public_id.replace(/\//g, ':') + '/' + video_public_id + '.mp4'
-      creationData.cloudinary_thumb = config.cloudinary.base + '/video/upload/' + video_public_id + '.jpg'
-      creationData.finish += 20
-    }
-
-    if(audio.qiniu_thumb) {
-      creationData.qiniu_thumb = audio.qiniu_thumb
-      creationData.finish += 30
-    }
-
-    if(audio.qiniu_video) {
-      creationData.qiniu_video = audio.qiniu_video
-      creationData.finish += 30
+      finish: 100
     }
 
     creation = new Creation(creationData)
@@ -278,8 +243,6 @@ exports.save = async (ctx, next) => {
       _id: creation._id,
       finish: creation.finish,
       title: creation.title,
-      qiniu_thumb: creation.qiniu_thumb,
-      qiniu_video: creation.qiniu_video,
       author: {
         avatar: user.avatar,
         nickname: user.nickname,
@@ -315,7 +278,42 @@ exports.find = async (ctx, next) => {
   }
 
 }
+exports.findByName = async(ctx, next) => {
+  //myVideo页面查找属于自己的creation，返回creation和总数
+  //传入参数为page(query)，skip(offset) limit(count:5) find(finish: 100,author:authorid) sort(meta.createAt:-1) populate(author 'avatar nickname gender age' )
+  const query = ctx.query
+  const author = query.author
+  const page = parseInt(query.page) || 0
+  const count = 10
+  const offset = (page - 1) * count
 
+  if(!author && author === 'undefined' && author === '') {
+    ctx.body = {
+      success: false,
+      err: 'author丢失'
+    }
+    return
+  }
+  let result = await Creation.find({
+    author: author,
+    finish: 100
+  }).sort({'meta.createAt': -1})
+  .skip(offset)
+  .limit(count)
+  .populate('author', userFields.join(' '))
+  .exec()
+
+  let total = await Creation.count({
+    author: author,
+    finish: 100
+  }).exec()
+
+  ctx.body = {
+    success: true,
+    data: result,
+    total: total
+  }
+}
 exports.votes= async (ctx, next) => {
   //传入参数为creation._id  up(Boolean) user(session.user)
   //查找creation中是否存在对应记录，不存在返回失败信息

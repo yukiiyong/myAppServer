@@ -31,7 +31,7 @@ exports.signup = async (ctx, next) => {
   else {
     user.verifyCode = verifyCode
   }
-  
+  console.log(verifyCode)
   try{
     user = await user.save()
   }
